@@ -25,8 +25,8 @@ xsum=0
 xmod=69000
 sigy=200
 depsp=0
-max_it=100
-error=10^-10
+max_it=10000000
+toler = 1e-8
 epsp_new=0
 sig=0
 
@@ -75,12 +75,12 @@ def back(a,c,xbackprev,plas,epsp):
     
 "derivative of backstress w.r.t plastic strain "   
 def dback(a,c,xbackprev,plas):
-    for y in range(0,3):
+
         dxback=a - c*xbackprev
-    return dxback
+        return dxback
 
 #newton-raphson method
-def newtraphson(a,c,epsp,plas,nu,el,xbackprev,inc,error,xback):
+def newtraphson(a,c,epsp,plas,nu,el,xbackprev,inc,xback):
 
 
     for n in range(0,max_it):
@@ -89,15 +89,15 @@ def newtraphson(a,c,epsp,plas,nu,el,xbackprev,inc,error,xback):
       
        
         
-        xsum=sum(xback)     
+        xsum=np.sum(xback)     
     #check to see if the point remains in the yield surface
         func=sig-xsum-sigy
-        if(abs(func)<error):
+        if(abs(func)<toler):
             return epsp
         else:
 
             dxback=dback(a,c,xbackprev,plas)
-            dxsum=sum(dxback)
+            dxsum=np.sum(dxback)
             dfunc = nu*(-xmod - dxsum)
             depsp=-func/dfunc
             epsp=epsp+depsp
@@ -145,7 +145,7 @@ for i in range(0,len(estrain)):
     #if lam> 1 then the increment is elastic, therefore the total stress can be
     #calculated directly from this increment
 
-    if (lam > 1.0) or (abs(lam-1.0) < 0.005):
+    if (lam > 1.0) or (np.abs(lam-1.0) < 0.005):
         etotal=etotal + estrain[i]
         sig=sig + xmod* estrain[i]
         continue
@@ -171,10 +171,11 @@ for i in range(0,len(estrain)):
             el=etotal[i]+de*(k)
             
             inc[i] = inc[i]+ 1
+            
             #xback=back(a,c,xbackprev,plas,epsp)
         
             #use Netwon-Raphson to determine the increment of plastic strain
-            epsp=newtraphson(a,c,epsp,plas,nu,el,xbackprev,inc,error,xback)
+            epsp=newtraphson(a,c,epsp,plas,nu,el,xbackprev,inc,xback)
         
             #Use this plastic strain to calculate the stress. Note: since this is a 
             #strain-controlled analysis, the increment in strain is the increment of
