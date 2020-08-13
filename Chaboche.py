@@ -69,14 +69,14 @@ plas=0
 "nonlinear backstress calculation"
 
 def back(a,c,xbackprev,plas,epsp):
-    xback=a*epsp -c*epsp*xbackprev
+    xback=a*epsp -c*epsp*xbackprev*np.sqrt(2/3)
     
     return xback
     
 "derivative of backstress w.r.t plastic strain "   
 def dback(a,c,xbackprev,plas):
 
-        dxback=a - c*xbackprev
+        dxback=a - c*xbackprev*np.sqrt(2/3)
         return dxback
 
 #newton-raphson method
