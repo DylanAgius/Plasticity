@@ -25,7 +25,7 @@ xsum=0
 xmod=69000
 sigy=200
 depsp=0
-max_it=10000000
+max_it=1000000000000
 toler = 1e-8
 epsp_new=0
 sig=0
@@ -86,12 +86,16 @@ def newtraphson(a,c,epsp,plas,nu,el,xbackprev,inc,xback):
     for n in range(0,max_it):
         
         sig=xmod*(el-epsp)
-      
-       
+        "von mises stress invariant"
+        strvm=np.sqrt(((sig-np.sum(xback))**2))
+        "flow rule"
+        flow=(3/2)*((sig-np.sum(xback))/strvm)
         
         xsum=np.sum(xback)     
     #check to see if the point remains in the yield surface
-        func=sig-xsum-sigy
+        #func=sig-xsum-sigy
+   
+        func=strvm-sigy
         if(abs(func)<toler):
             return epsp
         else:
@@ -100,7 +104,8 @@ def newtraphson(a,c,epsp,plas,nu,el,xbackprev,inc,xback):
             dxsum=np.sum(dxback)
             dfunc = nu*(-xmod - dxsum)
             depsp=-func/dfunc
-            epsp=epsp+depsp
+            epsp=epsp+flow*depsp
+            #epsp=epsp+depsp
             xback=back(a,c,xbackprev,plas,epsp)
             
     return epsp
@@ -126,6 +131,7 @@ for i in range(0,len(estrain)):
 
     "calculate the backstress"
     xback = back(a,c,xbackprev,plas,epsp)
+    
 
     "loading direction provided by sign of the strain increment"
     nu=np.sign(estrain[i])
@@ -161,6 +167,7 @@ for i in range(0,len(estrain)):
     #calculate the increment of strain by separating the loading increment into 
     #smaller increments
     
+    strvm=np.sqrt(((sig-np.sum(xback))**2))
     de=(estrain[i]-etotal[i])/steps
     
     for k in range(0,(steps)):
