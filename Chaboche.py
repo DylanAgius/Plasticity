@@ -7,19 +7,49 @@ This is a temporary script file.
 
 import numpy as np
 import matplotlib.pyplot as plt
+import sympy 
+from sympy import *
+from sympy.solvers import solve
+import copy
+import sympy as sym
 
 
 class oneD_plasticity:
    
-    def __init__(self,backstress,iso,sigy0,xmod,readfile,steps):
+    def __init__(self,vkin,backstress,iso,sigy0,xmod,readfile,steps):
+        "save the model type"
+        self.ktype=vkin[0]
+    
+        "type of kinematic hardening"
+        if (vkin[0]=='MAF'):
         
-        "find number of backstress"
-        nbs=int(len(backstress)/2.)
-        "add backstress parameters to individual arrays"
-        aval=np.array(backstress[0:nbs])
-        cval=np.array(backstress[nbs:len(backstress)])
-        self.aval=aval
-        self.cval=cval
+            "find number of backstress"
+            nbs=int(len(backstress)/2.)
+            "add backstress parameters to individual arrays"
+            aval=np.array(backstress[0:nbs])
+            cval=np.array(backstress[nbs:len(backstress)])
+            self.aval=aval
+            self.cval=cval
+        elif (vkin[0]=='MAFM'):
+            "save number of backstresses"
+            self.MAFMnum=vkin[1]
+            "check to see the number of multiplicative backstresses"
+            nbs=int((len(backstress)-int(vkin[1]*4))/2.)
+            "add backstress parameters to individual arrays"
+            aval=np.array(backstress[0:nbs])
+            cval=np.array(backstress[nbs+int(vkin[1]*2):(nbs*2)+int(vkin[1]*2)])
+            "now create arrays for the multiplicative backstress"
+            am=[]
+            cm=[]
+            totallen=int(nbs+int(vkin[1]*2))
+            for i in range(0,int((vkin[1]*2))):
+                am.append(backstress[nbs+i]/backstress[totallen+nbs+i])
+                cm.append(backstress[totallen+nbs+i])
+            self.aval=aval
+            self.cval=cval
+            self.am=am
+            self.cm=cm
+                
         
         "determine if isotropic hardening is to be used"
         if (iso[0]=='yes'):
@@ -57,6 +87,8 @@ class oneD_plasticity:
         figtotal= plt.figure()
         
         plt.plot(totalstrain,totalstress)
+        plt.xlabel('Strain')
+        plt.ylabel('Stress (MPa)')
         
         plt.show()
         
@@ -81,19 +113,38 @@ class oneD_plasticity:
         
         plt.plot(cyclecount,meanstress)
         
+        plt.xlabel('Cycle')
+        plt.ylabel('Mean Stress (MPa)')
+        
         plt.show()
         
 
-    def AF_Model(self):
+    def Plast_Model(self):
         
-        a=self.aval
-        c=self.cval
+        "initlise backstress parameters"
+        ktype=self.ktype
+        if ktype=='MAF':
+            a=self.aval
+            c=self.cval
+        elif ktype=='MAFM':
+            MAFMnum=self.MAFMnum
+            a=self.aval
+            c=self.cval
+            am=self.am
+            cm=self.cm
+            astar=am[MAFMnum:MAFMnum*2]
+            cstar=cm[MAFMnum:MAFMnum*2]
+            am=self.am[0:MAFMnum]
+            cm=self.cm[0:MAFMnum]
+           
+        
         Qs=self.Qs
         bs=self.bs
         sigy0=self.sigy0
         xmod=self.xmod
         lcnd=self.lcnd
         steps=self.steps
+      
         
         
         
@@ -105,22 +156,25 @@ class oneD_plasticity:
         
         "initialise values"
         "netwon raphson parameters"
-        max_it=int(1e10)
-        toler = 1e-10
+        max_it=int(1e5)
+        toler = 1e-9
         depsp=0
-        
-       
         epsp=0
         sig=0
         epspprev=0
         plasprev=0
         sigend=0
-        xbackprev=np.zeros(len(a))
         plas=0
-        xbackprevcy=0
         rsprev=0
         plasprev=0
         
+        "intialise backstresses"
+        if ktype=='MAF':
+            xbackprev=np.zeros(len(a))
+        elif ktype=='MAFM':
+            xbackprev=np.zeros(len(a)+len(am))
+            xbackmafmprev=np.zeros(len(am))
+            xbackstarprev=np.zeros(len(astar))
         "initialise arrays"
         estrain=np.zeros(len(lcnd))
         nu=np.zeros(len(lcnd))
@@ -136,29 +190,184 @@ class oneD_plasticity:
         
         "nonlinear backstress calculation using forward Euler integration"
         
-        def back(a,c,xbackprev,plas,epsp,plasprev,epspprev,xbackprevcy,nu):
+        def back(a,c,xbackprev,plas,epsp,plasprev,epspprev,nu):
             xback=(a*(epsp-epspprev) -c*nu*(xbackprev)*(epsp-epspprev))+xbackprev
             #xback=a*(epsp) -c*(xbackprev)*(epsp)
             return xback
+        
+        "nonlinear MAFM backstress calculation using forward Euler integration"
+        
+        def backMAFM(a,c,am,cm,astar,cstar,xbackprev,plas,epsp,plasprev,epspprev,nu,MAFMnum,xbackstarprev,xbackstar):
+            "classic basktresses"
+            xback[0:len(a)]=(a*(epsp-epspprev) -c*nu*(xbackprev[0:(len(xbackprev)-MAFMnum)])*(epsp-epspprev))+xbackprev[0:(len(xbackprev)-MAFMnum)]
+            xbackstar=cstar*(astar - nu*xbackstarprev)*(epsp-epspprev) + xbackstarprev
+            xback[(len(xbackprev)-MAFMnum):len(xbackprev)+MAFMnum]=(((cm + cstar*(astar - nu*xbackstarprev))*(am - nu*xbackprev[(len(xbackprev)-MAFMnum):len(xbackprev)+MAFMnum]))*(epsp-epspprev)) + xbackprev[(len(xbackprev)-MAFMnum):len(xbackprev)+MAFMnum]
+        
+            return xback,xbackstar
+        
+        def backMAFMRK4(a,c,am,cm,astar,cstar,xbackprev,plas,epsp,plasprev,epspprev,nu,MAFMnum,xbackstarprev,xbackstar):
+            "classic basktresses"
+            #am=np.array(am)
+            #cm=np.array(cm)
+            #astar=np.array(astar)
+            #cstar=np.array(cstar)
+           
+            k1=a*(epsp-epspprev) -c*nu*(xbackprev[0:(len(xbackprev)-MAFMnum)])*(epsp-epspprev)
+            k2=a*(epsp-epspprev) -c*nu*(xbackprev[0:(len(xbackprev)-MAFMnum)]+(k1/2.))*((epsp-epspprev)/2)
+            k3=a*(epsp-epspprev) -c*nu*(xbackprev[0:(len(xbackprev)-MAFMnum)]+(k2/2.))*((epsp-epspprev)/2)
+            k4=a*(epsp-epspprev) -c*nu*(xbackprev[0:(len(xbackprev)-MAFMnum)]+k3)*(epsp-epspprev)
+            
+            xback[0:len(a)]=xbackprev[0:(len(xbackprev)-MAFMnum)] + (1/6)*(k1+(2.*k2)+(2.*k3)+k4)
+            
+            "multiplicative backstress"
+           
+            k11=cstar*(astar - nu*xbackstarprev)*(epsp-epspprev)
+            k22=cstar*(astar - nu*(xbackstarprev+(k11/2)))*((epsp-epspprev)/2)
+            k33=cstar*(astar - nu*(xbackstarprev+(k22/2)))*((epsp-epspprev)/2)
+            k44=cstar*(astar - nu*(xbackstarprev+k33))*(epsp-epspprev)
+           
+            xbackstar=xbackstarprev + (1/6)*(k11+(2.*k22)+(2.*k33)+k44)
+            
+            "fourth backstress"
+            k13=((cm + cstar*(astar - nu*xbackstarprev))*(am - nu*xbackprev[(len(xbackprev)-MAFMnum):len(xbackprev)+MAFMnum]))*(epsp-epspprev)
+            k23=((cm + cstar*(astar - nu*xbackstarprev))*(am - nu*((xbackprev[(len(xbackprev)-MAFMnum):len(xbackprev)+MAFMnum])+(k13/2))))*((epsp-epspprev)/2)
+            k33=((cm + cstar*(astar - nu*xbackstarprev))*(am - nu*((xbackprev[(len(xbackprev)-MAFMnum):len(xbackprev)+MAFMnum])+(k23/2))))*((epsp-epspprev)/2)
+            k43=(((cm + cstar*(astar - nu*xbackstarprev))*(am - nu*((xbackprev[(len(xbackprev)-MAFMnum):len(xbackprev)+MAFMnum])+k33)))*(epsp-epspprev))
+
+            xback[(len(xbackprev)-MAFMnum):len(xbackprev)+MAFMnum]=xbackprev[(len(xbackprev)-MAFMnum):len(xbackprev)+MAFMnum] + (1/6)*(k13+(2.*k23)+(2.*k33)+k43)
+            return xback,xbackstar
+        
+        def dbackMAFMRK4(a,c,am,cm,astar,cstar,xbackprev,plas,epsp,plasprev,epspprev,nu,MAFMnum,xbackstarprev,xbackstar):
+           
+            epspt=symbols('epspt',real=True)
+            "classic basktresses"
+            am=np.array(am)
+            cm=np.array(cm)
+            astar=np.array(astar)
+            cstar=np.array(cstar)
+           
+            k1=a*epspt -c*nu*(xbackprev[0:(len(xbackprev)-MAFMnum)])*epspt
+            k2=a*epspt -c*nu*(xbackprev[0:(len(xbackprev)-MAFMnum)]+(k1/2.))*(epspt/2)
+            k3=a*epspt -c*nu*(xbackprev[0:(len(xbackprev)-MAFMnum)]+(k2/2.))*(epspt/2)
+            k4=a*epspt -c*nu*(xbackprev[0:(len(xbackprev)-MAFMnum)]+k3)*epspt
+            
+            xback=xbackprev[0:(len(xbackprev)-MAFMnum)] + (1/6)*(k1+(2.*k2)+(2.*k3)+k4)
+            
+         
+            
+            "fourth backstress"
+            k11=((cm + cstar*(astar - nu*xbackstarprev))*(am - nu*xbackprev[(len(xbackprev)-MAFMnum):len(xbackprev)+MAFMnum]))*epspt
+            k22=((cm + cstar*(astar - nu*xbackstarprev))*(am - nu*((xbackprev[(len(xbackprev)-MAFMnum):len(xbackprev)+MAFMnum])+(k11/2))))*(epspt/2)
+            k33=((cm + cstar*(astar - nu*xbackstarprev))*(am - nu*((xbackprev[(len(xbackprev)-MAFMnum):len(xbackprev)+MAFMnum])+(k22/2))))*(epspt/2)
+            k44=((cm + cstar*(astar - nu*xbackstarprev))*(am - nu*((xbackprev[(len(xbackprev)-MAFMnum):len(xbackprev)+MAFMnum])+k33)))*epspt
+
+            xback=np.append(xback,(xbackprev[(len(xbackprev)-MAFMnum):len(xbackprev)+MAFMnum] + (1/6)*(k11+(2.*k22)+(2.*k33)+k44)))
+            
+            dfunc_epsp=diff(xback,epspt)
+            
+            dxback=dfunc_epsp.subs({epspt:(epsp-epspprev)})
+            return dxback
             
         "derivative of backstress w.r.t plastic strain "   
-        def dback(a,c,xbackprev,plas,nu,xbackprevcy):
+        def dback(a,c,xbackprev,plas,nu):
         
             dxback=a - c*(xbackprev)*nu
             return dxback
         
+        "derivative of backstress w.r.t plastic strain for MAFM "   
+        def dbackMAFM(a,c,am,cm,astar,cstar,xbackprev,xbackstarprev,plas,nu,back,xbackstar,epsp,epspprev):
+        
+            dxback=a - c*(xbackprev[0:(len(xbackprev)-MAFMnum)])*nu
+            #dbackstar=cstar*(astar - nu*xbackstarprev)
+         
+            #xbackstar=cstar*(astar - nu*xbackstarprev)*(epsp-epspprev) + xbackstarprev
+            #dxbackmafm=((cm+cstar*(astar - nu*xbackstar))*(am - nu*xbackprev[(len(xbackprev)-MAFMnum):len(xbackprev)+MAFMnum]))
+            #dxbackmafm=np.dot(((cm+cstar*(astar - nu*xbackstar))*(am - nu*xbackprev[(len(xbackprev)-MAFMnum):len(xbackprev)+MAFMnum])),-cstar*(am - nu*xbackprev[(len(xbackprev)-MAFMnum):len(xbackprev)+MAFMnum])*dbackstar)
+
+            epspt=symbols('epspt',real=True)
+            
+            #am=np.array(am)
+            #cm=np.array(cm)
+            #astar=np.array(astar)
+            #cstar=np.array(cstar)
+           
+            backmafmsolv=(cm+cstar*(astar - nu*xbackstarprev))*(am - nu*xbackprev[(len(xbackprev)-MAFMnum):len(xbackprev)+MAFMnum])*epspt + xbackprev[(len(xbackprev)-MAFMnum):len(xbackprev)+MAFMnum]
+            dfunc_epsp=diff(backmafmsolv,epspt)
+            
+            dfunc_epspreal=dfunc_epsp.subs({epspt:(epsp-epspprev)})
+            
+            dxback=np.append(dxback,dfunc_epspreal)
+            return dxback
         "nonlinear isotropic hardening using forward Euler integration"
         def iso(Qs,bs,plas,plasprev,rsprev):
             rs=bs*(Qs-rsprev)*(plas-plasprev)+rsprev
             return rs
         
         "derivative of isotropic hardening w.r.t plastic strain"
-        def diso(Qs,bs,rsprev):
-            drs=bs*(Qs-rsprev)
+        def diso(Qs,bs,rsprev,nu):
+            drs=bs*(Qs-rsprev)*nu
             return drs
         
+        "nonlinear isotropic hardening using forward Euler integration"
+        def isoback(Qs,bs,plas,plasprev,rsprev):
+            rs=symbols('rs',real=True)
+            
+            funcrs=bs*(Qs-rs)*(plas-plasprev)+rsprev -rs
+            
+            funcsol=solve(funcrs,rs)
+            
+            return funcsol
+        
+        "derivative of isotropic hardening w.r.t plastic strain"
+        def disoback(Qs,bs,rsprev,plas,plasprev):
+            rs,plast=symbols('rs plast',real=True)
+            
+            funcrs=bs*(Qs-rs)*plast+rsprev -rs
+            drsfunc=diff(funcrs,plast)
+            
+            funcsol=solve(drsfunc,rs)
+            
+           
+            #drs=funcsol.subs({plast:(plas-plasprev)})
+            
+           
+            return funcsol[0]
+        
+        "runge-kutta"
+        def AFRK4(a,c,xbackprev,plas,epsp,plasprev,epspprev,nu):
+            
+            k1=a*(epsp-epspprev) -c*nu*(xbackprev)*(epsp-epspprev)
+            k2=a*(epsp-epspprev) -c*nu*(xbackprev+(k1/2.))*(epsp-epspprev)
+            k3=a*(epsp-epspprev) -c*nu*(xbackprev+(k2/2.))*(epsp-epspprev)
+            k4=a*(epsp-epspprev) -c*nu*(xbackprev+k3)*(epsp-epspprev)
+            
+            xback=xbackprev+ (1/6)*(k1+(2.*k2)+(2.*k3)+k4)
+            
+            return xback
+        
+        "runge-kutta"
+        def dAFRK4(a,c,xbackprev,plas,epsp,plasprev,epspprev,nu):
+            epspt=symbols('epspt',real=True)
+            
+            k1=a*epspt -c*nu*(xbackprev)*epspt
+            k2=a*epspt -c*nu*(xbackprev+(k1/2.))*epspt
+            k3=a*epspt -c*nu*(xbackprev+(k2/2.))*epspt
+            k4=a*epspt-c*nu*(xbackprev+k3)*epspt
+          
+            
+            dxbackfunc= xbackprev+ (1/6)*(k1+ (2.*k2)+(2.*k3)+k4)
+            
+            dfunc_epsp=diff(dxbackfunc,epspt)
+            
+            dxback=dfunc_epsp.subs({epspt:(epsp-epspprev)})
+            
+            
+            
+            return dxback
+                        
+        
         "newton-raphson method"
-        def newtraphson(a,c,epsp,plas,nu,el,xbackprev,inc,xback,depsp,epspprev,plasprev,xbackprevcy,rs,rsprev):
+        def newtraphson(a,c,epsp,plas,nu,el,xbackprev,inc,xback,depsp,epspprev,plasprev,rs,rsprev):
         
         
             for n in range(0,max_it):
@@ -177,9 +386,10 @@ class oneD_plasticity:
                     return epsp,plas,xback,rs
                 else:
                     
-                    dxback=dback(a,c,xbackprev,plas,nu,xbackprevcy)
+                    dxback=dback(a,c,xbackprev,plas,nu)
+                    #dxback=dAFRK4(a,c,xbackprev,plas,epsp,plasprev,epspprev,nu)
                     dxsum=np.sum(dxback)
-                    drs=diso(Qs,bs,rsprev)
+                    drs=diso(Qs,bs,rsprev,nu)
                     dfunc = nu*(-xmod - dxsum)-drs
                     depsp=-func/dfunc
                     
@@ -188,12 +398,57 @@ class oneD_plasticity:
                     plas += nu*depsp
                     
                     "update backstress using new plastic strain increment"
-                    xback=back(a,c,xbackprev,plas,epsp,plasprev,epspprev,xbackprevcy,nu)
-                    
+                    xback=back(a,c,xbackprev,plas,epsp,plasprev,epspprev,nu)
+                    #xback=AFRK4(a,c,xbackprev,plas,epsp,plasprev,epspprev,nu)
                     "update isotropic hardening using new plastic strain increment"
                     rs= iso(Qs,bs,plas,plasprev,rsprev)
                     
             return epsp,plas,xback,rs
+        
+        "newton-raphson method MAFM"
+        def newtraphsonMAFM(a,c,am,cm,astar,cstar,MAFMnum,epsp,plas,nu,el,xbackprev,inc,xback,depsp,epspprev,plasprev,rs,rsprev,xbackstarprev,xbackstar):
+       
+        
+            for n in range(0,max_it):
+                
+                sig=xmod*(el-epsp)
+                "von mises stress invariant"
+              
+              
+                strvm=abs(sig-np.sum(xback))
+                "calculate the yield stress"
+                sigy=sigy0+rs
+                "check to see if the point remains in the yield surface"
+                func=strvm-sigy
+           
+                if(abs(func)<toler):
+                    return epsp,plas,xback,rs,xbackstar
+                else:
+                    
+                    dxback=dbackMAFM(a,c,am,cm,astar,cstar,xbackprev,xbackstarprev,plas,nu,back,xbackstar,epsp,epspprev)
+                    #dxback=dbackMAFMRK4(a,c,am,cm,astar,cstar,xbackprev,plas,epsp,plasprev,epspprev,nu,MAFMnum,xbackstar,xbackstarprev)
+                    
+                    dxsum=np.sum(dxback)
+                    drs=diso(Qs,bs,rsprev,nu)
+                    
+                    #drs=disoback(Qs,bs,rsprev,plas,plasprev)
+                    dfunc = nu*(-xmod - dxsum)-drs
+                    depsp=-func/dfunc
+                    
+                   
+                    epsp += depsp
+                    plas += nu*depsp
+                    
+                    "update backstress using new plastic strain increment"
+                    xback,xbackstar=backMAFM(a,c,am,cm,astar,cstar,xbackprev,plas,epsp,plasprev,epspprev,nu,MAFMnum,xbackstar,xbackstarprev)
+                    #xback,xbackstar=backMAFMRK4(a,c,am,cm,astar,cstar,xbackprev,plas,epsp,plasprev,epspprev,nu,MAFMnum,xbackstar,xbackstarprev)
+                    
+                    
+                    "update isotropic hardening using new plastic strain increment"
+                    rs= iso(Qs,bs,plas,plasprev,rsprev)
+                    #rsback=iso(Qs,bs,plas,plasprev,rsprev)
+                    
+            return epsp,plas,xback,rs,xbackstar
                 
         estrain=np.diff(lcnd)
         
@@ -209,8 +464,11 @@ class oneD_plasticity:
             dsig=xmod*estrain[i]
         
             "update values at the end of previous branch to the start of the current branch of loading"
-        
-            xback=xbackprev
+            if ktype=='MAF':
+                xback=xbackprev
+            elif ktype=='MAFM':
+                xback=xbackprev
+                xbackstar=xbackstarprev
             sig=sigend
             rs=rsprev
         
@@ -263,10 +521,19 @@ class oneD_plasticity:
                 inc[i] = inc[i]+ 1
                     
                 "call on the newton-raphson method to solve for the increment of plastic strain"
-                epsp,plas,xback,rs=newtraphson(a,c,epsp,plas,nu,el,xbackprev,inc,xback,depsp,epspprev,plasprev,xbackprevcy,rs,rsprev)
+                if ktype=='MAF':
+                    epsp,plas,xback,rs=newtraphson(a,c,epsp,plas,nu,el,xbackprev,inc,xback,depsp,epspprev,plasprev,rs,rsprev)
                 
                 
-                xbackprev=xback
+                    xbackprev=xback
+                
+                elif ktype=='MAFM':
+                    epsp,plas,xback,rs,xbackstar=newtraphsonMAFM(a,c,am,cm,astar,cstar,MAFMnum,epsp,plas,nu,el,xbackprev,inc,xback,depsp,epspprev,plasprev,rs,rsprev,xbackstarprev,xbackstar)
+                                             
+       
+                
+                    xbackprev=xback
+                    xbackstarprev=xbackstar
                 epspprev=epsp
                 rsprev=rs
                 plasprev=plas
@@ -281,34 +548,42 @@ class oneD_plasticity:
             self.strain=enew
             self.stress=snew
                     
-             
+# "type of kinematic hardening model to use"
+# "if traditiona chaboche use: MAF; if multiplicative model use: MAFM"
+# "if using MAFM, please specify the number of multiplicative backstresses being used."
+# "This example uses 1"
+# kinv=['MAFM',1]             
 
-"order required C1,C2,C3,Cn..,gamma1,gamma2,gamma3,gamman.."
-backstress=[7500,1000,30,310,300,4]
+# "order required C1,C2,C3,Cn..,gamma1,gamma2,gamma3,gamman.. for the MAF model"
+# "if using the MAFM model, specify the C and gamma values for the multiplicative backstress "
+# "at the end:C1,C2,C3,C4,Cstar..,gamma1,gamma2,gamma3,gamma4,gammastar..  "
+# #backstress=[440,1200,5100,100,800,0.1,10000,1500,18000,500]
+# #backstress=[40000,6900,7000,1090,1100,800,440,450,60,1]
+# backstress=[4400,120000,5100,117000,800,4,1000,15,1800,5000]
 
 
-"if you are using isotropic hardening need to answer yes"
-"order required Q,b"
-iso=['yes',-90.,1.8]
+# "if you are using isotropic hardening need to answer yes"
+# "order required Q,b"
+# iso=['no',-50, 1]
 
-"material yield stress"
-sigy0=200.0
+# "material yield stress"
+# sigy0=200.0
 
-"material elastic modulus"
-xmod=69000.0
+# "material elastic modulus"
+# xmod=69000
 
-"if you want to read turning points from file answer 'yes' if not specify max"
-"and minimum values interested in and the number of cycles"
+# "if you want to read turning points from file answer 'yes' if not specify max"
+# "and minimum values interested in and the number of cycles"
 
-readfile=['no',0.052,0.032,100]
+# readfile=['no',0.02,0.002,60]
 
-"number of data points per branch"
-steps=80
+# "number of data points per branch"
+# steps=100
     
              
         
-loadData=oneD_plasticity(backstress,iso,sigy0,xmod,readfile,steps)
-loadData.AF_Model()
-loadData.plotter_totalvals()
-loadData.plotter_meanstress()
+# loadData=oneD_plasticity(kinv,backstress,iso,sigy0,xmod,readfile,steps)
+# loadData.Plas_Model()
+# loadData.plotter_totalvals()
+# loadData.plotter_meanstress()
             
