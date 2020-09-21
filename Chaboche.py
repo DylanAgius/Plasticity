@@ -456,10 +456,10 @@ class oneD_plasticity:
         
         "create a loop to loop through the increments of strain"
         "add pogress bar"
-        pbar = tqdm(total=100)
+        pbar = tqdm(total=len(estrain))
         for i in range(0,len(estrain)):
-            pbar.update((i/(len(estrain)*(steps/2)))*100)
-
+            pbar.update((len(estrain))/(len(estrain)))
+            #pbar.update(int(((i+1)/(len(estrain)-1))*100))
             "starting strain"
             estart=lcnd[i+1]
             
