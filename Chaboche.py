@@ -73,6 +73,13 @@ class oneD_plasticity:
             lcnd=np.tile([readfile[2],readfile[1]],readfile[3])
             lcnd=np.insert(lcnd,0,0)
             lcnd=np.insert(lcnd,1,readfile[1])
+        else:
+            readtp=open(readfile[1],"r")
+            lcnd=readtp.read().splitlines()
+            readtp.close()
+            lcnd=np.asarray(lcnd).astype(np.float64)
+               
+    
         
         self.lcnd=lcnd
         
@@ -552,42 +559,46 @@ class oneD_plasticity:
             self.strain=enew
             self.stress=snew
         pbar.close()
-# "type of kinematic hardening model to use"
-# "if traditiona chaboche use: MAF; if multiplicative model use: MAFM"
-# "if using MAFM, please specify the number of multiplicative backstresses being used."
-# "This example uses 1"
-# kinv=['MAFM',1]             
+"type of kinematic hardening model to use"
+"if traditiona chaboche use: MAF; if multiplicative model use: MAFM"
+"if using MAFM, please specify the number of multiplicative backstresses being used."
+"This example uses 1"
+kinv=['MAFM',1]             
 
-# "order required C1,C2,C3,Cn..,gamma1,gamma2,gamma3,gamman.. for the MAF model"
-# "if using the MAFM model, specify the C and gamma values for the multiplicative backstress "
-# "at the end:C1,C2,C3,C4,Cstar..,gamma1,gamma2,gamma3,gamma4,gammastar..  "
-# #backstress=[440,1200,5100,100,800,0.1,10000,1500,18000,500]
-# #backstress=[40000,6900,7000,1090,1100,800,440,450,60,1]
-# backstress=[4400,120000,5100,117000,800,4,1000,15,1800,5000]
+"order required C1,C2,C3,Cn..,gamma1,gamma2,gamma3,gamman.. for the MAF model"
+"if using the MAFM model, specify the C and gamma values for the multiplicative backstress "
+"at the end:C1,C2,C3,C4,Cstar..,gamma1,gamma2,gamma3,gamma4,gammastar..  "
+#backstress=[440,1200,5100,100,800,0.1,10000,1500,18000,500]
+#backstress=[40000,6900,7000,1090,1100,800,440,450,60,1]
+backstress=[4400,120000,5100,117000,800,4,1000,15,1800,5000]
 
 
-# "if you are using isotropic hardening need to answer yes"
-# "order required Q,b"
-# iso=['no',-50, 1]
+"if you are using isotropic hardening need to answer yes"
+"order required Q,b"
+iso=['no',-50, 1]
 
-# "material yield stress"
-# sigy0=200.0
+"material yield stress"
+sigy0=200.0
 
-# "material elastic modulus"
-# xmod=69000
+"material elastic modulus"
+xmod=69000
 
-# "if you want to read turning points from file answer 'yes' if not specify max"
-# "and minimum values interested in and the number of cycles"
+"if you want to read turning points from file answer 'yes' if not specify max"
+"and minimum values interested in and the number of cycles"
 
-# readfile=['no',0.02,0.002,60]
+"this reads turning points from a text file (example file given)"
+readfile=['yes','loading_condition.txt']
 
-# "number of data points per branch"
-# steps=100
+"this reads turning points and number of cycles"
+#readfile=['no',0.02,0.002,60]
+
+"number of data points per branch"
+steps=100
     
              
         
-# loadData=oneD_plasticity(kinv,backstress,iso,sigy0,xmod,readfile,steps)
-# loadData.Plast_Model()
-# loadData.plotter_totalvals()
-# loadData.plotter_meanstress()
+loadData=oneD_plasticity(kinv,backstress,iso,sigy0,xmod,readfile,steps)
+loadData.Plast_Model()
+loadData.plotter_totalvals()
+#loadData.plotter_meanstress()
             
