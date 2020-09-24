@@ -153,7 +153,7 @@ class straincontrol:
             
             sheet1.write(1+i,0, totalstrain[i])
             sheet1.write(1+i,1,totalstress[i])
-            workbook.save("simulated_data.xls") 
+            workbook.save("straincontrol_simulated_data.xls") 
             
         "check to see if mean stress present"
         if 'meanstress' in dir(self):
@@ -166,7 +166,7 @@ class straincontrol:
             for i in range(0,len(meanstress)):
                 sheet2.write(1+i,0, cyclecount[i])
                 sheet2.write(1+i,1,meanstress[i])
-                workbook.save("simulated_data.xls")
+                workbook.save("straincontrol_simulated_data.xls")
                 
         "check to see if peak strain present"  
         if 'peake' in dir(self):
@@ -179,7 +179,7 @@ class straincontrol:
             for i in range(0,len(peake)):
                 sheet3.write(1+i,0, cyclecount[i])
                 sheet3.write(1+i,1,peake[i])
-                workbook.save("simulated_data.xls")
+                workbook.save("straincontrol_simulated_data.xls")
         
 
     def Plast_Model(self):
@@ -507,7 +507,7 @@ class stresscontrol:
             
             sheet1.write(1+i,0, totalstrain[i])
             sheet1.write(1+i,1,totalstress[i])
-            workbook.save("simulated_data.xls") 
+            workbook.save("stresscontrol_simulated_data.xls") 
             
         "check to see if mean stress present"
         if 'meanstress' in dir(self):
@@ -520,7 +520,7 @@ class stresscontrol:
             for i in range(0,len(meanstress)):
                 sheet2.write(1+i,0, cyclecount[i])
                 sheet2.write(1+i,1,meanstress[i])
-                workbook.save("simulated_data.xls")
+                workbook.save("stresscontrol_simulated_data.xls")
                 
         "check to see if peak strain present"  
         if 'peake' in dir(self):
@@ -533,7 +533,7 @@ class stresscontrol:
             for i in range(0,len(peake)):
                 sheet3.write(1+i,0, cyclecount[i])
                 sheet3.write(1+i,1,peake[i])
-                workbook.save("simulated_data.xls")
+                workbook.save("stresscontrol_simulated_data.xls")
 
     def Plast_Model(self):
         
@@ -968,5 +968,53 @@ def dAFRK4(a,c,xbackprev,plas,epsp,plasprev,epspprev,nu):
     return dxback
  
 
+# # "type of kinematic hardening model to use"
+# # "if traditiona chaboche use: MAF; if multiplicative model use: MAFM"
+# # "if using MAFM, please specify the number of multiplicative backstresses being used."
+# # "This example uses 1"
+# kinv=['MAF',1]             
 
+# # "order required C1,C2,C3,Cn..,gamma1,gamma2,gamma3,gamman.. for the MAF model"
+# # "if using the MAFM model, specify the C and gamma values for the multiplicative backstress "
+# # "at the end:C1,C2,C3,C4,Cstar..,gamma1,gamma2,gamma3,gamma4,gammastar..  "
+# # #backstress=[440,1200,5100,100,800,0.1,10000,1500,18000,500]
+# # #backstress=[40000,6900,7000,1090,1100,800,440,450,60,1]
+# backstress=[4400,120000,5100,117000,800,4,1000,15,1800,5000]
+# #backstress=[4400,120000,5100,117000,1,4,1000,15,1800,1]
+
+
+# "if you are using isotropic hardening need to answer yes"
+# "order required Q,b"
+# isoparam=['yes',-50, 1]
+
+# "material yield stress"
+# sigy0=200.0
+
+# "material elastic modulus"
+# xmod=69000
+
+# "if you want to read turning points from file answer 'yes' if not specify max"
+# "and minimum values interested in and the number of cycles"
+
+# "this reads turning points from a text file (example file given)"
+# #readfile=['yes','loading_condition.txt']
+
+# "this reads turning points and number of cycles"
+# #readfile=['no',463,-327,10]
+# readfile=['no',0.02,-0.02,10]
+
+# "number of data points per branch"
+# steps=20
+
+
+    
+             
+        
+# stressc=straincontrol(kinv,backstress,isoparam,sigy0,xmod,readfile,steps)
+# stressc.Plast_Model()
+# stressc.plotter_meanstress()
+# stressc.plotter_totalvals()
+# stressc.dataextract()
+
+#loadData.plotter_meanstress()
             
