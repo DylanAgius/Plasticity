@@ -10,5 +10,5 @@ The modelling capability will be extended to include those used in the following
 * [Aluminum Alloy 7075 Ratcheting and Plastic Shakedown Evaluation with the Multiplicative Armstrong–Frederick Model](https://doi.org/10.2514/1.J055833)
 * [A modification of the multicomponent Armstrong–Frederick model with multiplier for the enhanced simulation of aerospace aluminium elastoplasticity](https://doi.org/10.1016/j.ijmecsci.2018.05.036)
 
-Requirements:
+# Requirements
 numpy, matplotlib, sympy, tqdm, xlwt 
