@@ -78,7 +78,17 @@ class straincontrol:
             readtp=open(readfile[1],"r")
             lcnd=readtp.read().splitlines()
             readtp.close()
-            lcnd=np.asarray(lcnd).astype(np.float64)
+           
+            lcndex=np.asarray(lcnd).astype(np.float64)
+            lcnd=[]
+            for i in range(0,int(len(lcndex)),3):
+                  lcnd=np.append(lcnd,np.tile([lcndex[i],lcndex[i+1]],int(lcndex[i+2])))
+
+             
+            #extract the number of turning points
+            turningpoints=lcnd[2::3]
+            #now extract the turning point values
+            
                
     
         
@@ -972,48 +982,48 @@ def dAFRK4(a,c,xbackprev,plas,epsp,plasprev,epspprev,nu):
 # # "if traditiona chaboche use: MAF; if multiplicative model use: MAFM"
 # # "if using MAFM, please specify the number of multiplicative backstresses being used."
 # # "This example uses 1"
-# kinv=['MAF',1]             
+#kinv=['MAF',1]             
 
 # # "order required C1,C2,C3,Cn..,gamma1,gamma2,gamma3,gamman.. for the MAF model"
 # # "if using the MAFM model, specify the C and gamma values for the multiplicative backstress "
 # # "at the end:C1,C2,C3,C4,Cstar..,gamma1,gamma2,gamma3,gamma4,gammastar..  "
 # # #backstress=[440,1200,5100,100,800,0.1,10000,1500,18000,500]
 # # #backstress=[40000,6900,7000,1090,1100,800,440,450,60,1]
-# backstress=[4400,120000,5100,117000,800,4,1000,15,1800,5000]
+#backstress=[4400,120000,5100,117000,800,4,1000,15,1800,5000]
 # #backstress=[4400,120000,5100,117000,1,4,1000,15,1800,1]
 
 
 # "if you are using isotropic hardening need to answer yes"
 # "order required Q,b"
-# isoparam=['yes',-50, 1]
+#isoparam=['yes',-50, 1]
 
 # "material yield stress"
-# sigy0=200.0
+#sigy0=200.0
 
 # "material elastic modulus"
-# xmod=69000
+#xmod=69000
 
 # "if you want to read turning points from file answer 'yes' if not specify max"
 # "and minimum values interested in and the number of cycles"
 
 # "this reads turning points from a text file (example file given)"
-# #readfile=['yes','loading_condition.txt']
+#readfile=['yes','loading_condition.txt']
 
 # "this reads turning points and number of cycles"
 # #readfile=['no',463,-327,10]
 # readfile=['no',0.02,-0.02,10]
 
 # "number of data points per branch"
-# steps=20
+#steps=100
 
 
     
              
         
-# stressc=straincontrol(kinv,backstress,isoparam,sigy0,xmod,readfile,steps)
-# stressc.Plast_Model()
+stressc=straincontrol(kinv,backstress,isoparam,sigy0,xmod,readfile,steps)
+stressc.Plast_Model()
 # stressc.plotter_meanstress()
-# stressc.plotter_totalvals()
+stressc.plotter_totalvals()
 # stressc.dataextract()
 
 #loadData.plotter_meanstress()
